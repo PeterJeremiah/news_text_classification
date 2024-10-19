@@ -13,6 +13,7 @@ class Logger:
         # 第二步，创建一个handler，用于写入日志文件
         rq = time.strftime('%Y%m%d%H%M', time.localtime(time.time()))
         log_path = os.getcwd() + '/Logs/'
+        #log_path = '/root/news_text_classification/Logs/'
         log_name = log_path + rq + '.log'
         logfile = log_name
         fh = logging.FileHandler(logfile, mode=mode)

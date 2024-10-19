@@ -8,8 +8,21 @@ from dataset import *
 from utils import *
 from config import *
 from model import *
+from utils import Logger  # 导入Logger类
 import os
+
+import pickle
 logging.basicConfig(level=logging.INFO, format='%(asctime)-15s %(levelname)s: %(message)s')
+
+
+# 确保日志目录存在
+log_dir = '/root/news_text_classification/Word2Vec_TextCNN_BiLSTM_Attention/Logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+# 初始化Logger
+log = Logger(mode='w')
+
 
 # set seed
 seed = 666
@@ -35,8 +48,17 @@ def data_preprocess():
     #数据划分
     #如果之前已经做了就直接加载
     if os.path.exists(test_index_file) and os.path.exists(train_index_file):
-        test_index=joblib.load(test_index_file)
-        train_index=joblib.load(train_index_file)
+        #test_index=joblib.load(test_index_file)
+        #train_index=joblib.load(train_index_file)
+        rawdata.reset_index(inplace=True, drop=True)
+        X = list(rawdata.index)
+        y = rawdata['label']
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1,
+                                                            stratify=y)  # stratify=y表示分层抽样，根据不同类别的样本占比进行抽样
+        test_index = {'X_test': X_test, 'y_test': y_test}
+        joblib.dump(test_index, 'test_index.pkl')
+        train_index = {'X_train': X_train, 'y_train': y_train}
+        joblib.dump(train_index, 'train_index.pkl')
     else:
         rawdata.reset_index(inplace=True, drop=True)
         X = list(rawdata.index)
@@ -102,10 +124,21 @@ log.logger.info("Creating Model.")
 model=Model(log,vocab)
 log.logger.info("Use cuda: %s, gpu id: %d.", use_cuda, gpu)
 # train
-# trainer = Trainer(log,model, vocab,train_data,dev_data,test_data,final_test_data)
-# trainer.train()
+trainer = Trainer(log,model, vocab,train_data,dev_data,test_data,final_test_data)
+trainer.train()
 
 # test
+# 保存词汇表
+vocab_dict = {'word_to_index': vocab.word_to_index, 'index_to_word': vocab.index_to_word}
+with open('vocab.pkl', 'wb') as f:
+    pickle.dump(vocab_dict, f)
+
+# 加载词汇表
+with open('vocab.pkl', 'rb') as f:
+    vocab_dict = pickle.load(f)
+vocab.word_to_index = vocab_dict['word_to_index']
+vocab.index_to_word = vocab_dict['index_to_word']
+
 trainer = Trainer(log,model, vocab,final_test_data=final_test_data)
 # trainer.test(flag=2)
 trainer.test(flag=3)

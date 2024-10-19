@@ -8,11 +8,16 @@ from utils import *
 from config import *
 from dataset import *
 import pandas as pd
+
+import pickle
 class Trainer():
     def __init__(self,log, model, vocab,train_data=None,dev_data=None,final_test_data=None,test_data=None):
         self.model = model
         self.report = True
         self.log=log
+        #确保Trainer类中有word_to_index和index_to_word属性
+        self.word_to_index = vocab.word_to_index
+        self.index_to_word = vocab.index_to_word
 
         # get_examples() 返回的结果是 一个 list
         # 每个元素是一个 tuple: (label, 句子数量，doc)
@@ -83,10 +88,28 @@ class Trainer():
                     break
 
             pbar.update()
+            
+            vocab = {'word_to_index': self.word_to_index, 'index_to_word': self.index_to_word}
+            with open('Vocab.pkl', 'wb') as f:
+                pickle.dump(vocab, f)
     def test(self,flag=1):
         # flag = 1: dev
         # flag = 2: test
         # flag = 3: final_test
+
+        # 测试开始前加载词汇表
+        with open('Vocab.pkl', 'rb') as f:
+            vocab = pickle.load(f)
+        self.word_to_index = vocab['word_to_index']
+        self.index_to_word = vocab['index_to_word']
+
+        save_model = '/root/news_text_classification/Word2Vec_TextCNN_BiLSTM_Attention/cnn.bin'  # 确保这里的路径是正确的
+        # 检查模型文件是否存在
+        if not os.path.exists(save_model):
+            raise FileNotFoundError(f"模型文件 {save_model} 不存在，请检查路径。")
+
+
+        
         self.model.load_state_dict(torch.load(save_model))
         self._eval(self.last_epoch + 1, test=flag)
 
@@ -113,7 +136,7 @@ class Trainer():
             # batch_outputs：b * num_labels
             batch_outputs = self.model(batch_inputs)
             # criterion 是 CrossEntropyLoss，真实标签的形状是：N
-            # 预测标签的形状是：(N,C)
+            # 预测标签的形状是：(N, C)，C 是类别数
             loss = self.criterion(batch_outputs, batch_labels)
 
             loss.backward()
